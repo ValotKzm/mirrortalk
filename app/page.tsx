@@ -90,7 +90,7 @@ export default function InterviewApp() {
 
   if (!isConnected) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-6">
+      <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-6">
         <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full">
           <div className="text-center mb-6">
             <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -118,7 +118,7 @@ export default function InterviewApp() {
                 value={roomName}
                 onChange={(e) => setRoomName(e.target.value)}
                 placeholder="ex: entretien-dev"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-blue-200 text-blue-700"
               />
             </div>
 
@@ -131,7 +131,7 @@ export default function InterviewApp() {
                 value={userName}
                 onChange={(e) => setUserName(e.target.value)}
                 placeholder="ex: Marie Dupont"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-blue-200 text-blue-700"
               />
             </div>
 
@@ -158,7 +158,7 @@ export default function InterviewApp() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
+    <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 p-6">
       <div className="max-w-6xl mx-auto">
         <div className="bg-white rounded-xl shadow-lg p-4 mb-6">
           <div className="flex items-center justify-between">
