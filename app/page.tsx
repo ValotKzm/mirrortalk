@@ -1,7 +1,7 @@
-"use client"
-import React, { useState, useRef, useEffect } from 'react';
-import { Video, Mic, MicOff, VideoOff, Wifi } from 'lucide-react';
-import { Room, RoomEvent, Track } from 'livekit-client';
+"use client";
+import React, { useState, useRef, useEffect } from "react";
+import { Video, Mic, MicOff, VideoOff, Wifi } from "lucide-react";
+import { Room, RoomEvent, Track } from "livekit-client";
 
 // Types
 interface Participant {
@@ -10,45 +10,64 @@ interface Participant {
 }
 
 export default function InterviewApp() {
-  const [roomName, setRoomName] = useState<string>('');
-  const [userName, setUserName] = useState<string>('');
+  const [roomName, setRoomName] = useState<string>("");
+  const [userName, setUserName] = useState<string>("");
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [isAudioEnabled, setIsAudioEnabled] = useState<boolean>(true);
   const [isVideoEnabled, setIsVideoEnabled] = useState<boolean>(true);
-  const [error, setError] = useState<string>('');
+  const [error, setError] = useState<string>("");
   const [isLivekitConnected, setIsLivekitConnected] = useState<boolean>(false);
-  const [remoteParticipant, setRemoteParticipant] = useState<Participant | null>(null);
+  const [remoteParticipant, setRemoteParticipant] =
+    useState<Participant | null>(null);
+  const [remoteVideoTracks, setRemoteVideoTracks] = useState<Track[]>([]);
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
-  
+
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const roomRef = useRef<any>(null);
+
+  // Attacher les tracks vidéo quand le ref est prêt
+  useEffect(() => {
+    if (remoteVideoRef.current && remoteVideoTracks.length > 0) {
+      remoteVideoTracks.forEach((track) => {
+        if (
+          track.kind === Track.Kind.Video &&
+          !(track as any).attachedElements?.includes(remoteVideoRef.current)
+        ) {
+          track.attach(remoteVideoRef.current as HTMLVideoElement);
+          console.log('Attached video track to remote video', remoteVideoRef.current?.srcObject);
+          remoteVideoRef.current?.play().catch((err) => console.error('Play failed', err));
+        }
+      });
+    }
+  }, [remoteVideoTracks]);
 
   // Démarrer la caméra et le micro
   const startLocalMedia = async (): Promise<void> => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
-        audio: true
+        audio: true,
       });
-      
+
       localStreamRef.current = stream;
-      
+
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
       }
-      
-      setError('');
+
+      setError("");
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Erreur inconnue';
-      setError('Impossible d\'accéder à la caméra/micro: ' + errorMessage);
+      const errorMessage =
+        err instanceof Error ? err.message : "Erreur inconnue";
+      setError("Impossible d'accéder à la caméra/micro: " + errorMessage);
     }
   };
 
   const stopLocalMedia = (): void => {
     if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => track.stop());
+      localStreamRef.current.getTracks().forEach((track) => track.stop());
       localStreamRef.current = null;
     }
     if (localVideoRef.current) {
@@ -59,14 +78,14 @@ export default function InterviewApp() {
   // Connexion à LiveKit - PRODUCTION avec Next.js API
   const connectToLivekit = async (): Promise<void> => {
     try {
-      setError('');
+      setError("");
       setIsConnecting(true);
 
       // Étape 1: Obtenir le token depuis notre API Next.js
-      const response = await fetch('/api/livekit-token', {
-        method: 'POST',
+      const response = await fetch("/api/livekit-token", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           roomName: roomName,
@@ -75,7 +94,7 @@ export default function InterviewApp() {
       });
 
       if (!response.ok) {
-        throw new Error('Erreur lors de la génération du token');
+        throw new Error("Erreur lors de la génération du token");
       }
 
       const { token, url } = await response.json();
@@ -85,41 +104,64 @@ export default function InterviewApp() {
       // Puis décommentez le code ci-dessous:
 
       // /*
-      
+
       const room = new Room({
         adaptiveStream: true,
         dynacast: true,
       });
-      
+
       roomRef.current = room;
 
       // Écouter les événements de participants
       room.on(RoomEvent.ParticipantConnected, (participant) => {
-        console.log('✅ Participant connecté:', participant.identity);
+        console.log("✅ Participant connecté:", participant.identity);
         setRemoteParticipant({
           name: participant.identity,
-          identity: participant.identity
+          identity: participant.identity,
         });
       });
 
       room.on(RoomEvent.ParticipantDisconnected, (participant) => {
-        console.log('❌ Participant déconnecté:', participant.identity);
+        console.log("❌ Participant déconnecté:", participant.identity);
         setRemoteParticipant(null);
       });
 
       // Écouter les nouvelles pistes vidéo/audio
       room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
-        console.log('📹 Nouvelle piste:', track.kind, 'de', participant.identity);
-        
-        if (track.kind === Track.Kind.Video) {
-          const videoElement = remoteVideoRef.current;
-          if (videoElement) {
-            track.attach(videoElement);
-          }
-        }
-        
+        console.log('TrackSubscribed', {
+          kind: track.kind,
+          sid: (track as any).sid ?? undefined,
+          attached: (track as any).attachedElements?.length ?? 0,
+          publisher: participant?.identity ?? undefined,
+        }, track);
+
         if (track.kind === Track.Kind.Audio) {
           track.attach();
+        } else if (track.kind === Track.Kind.Video) {
+          // push to state and attach from useEffect when ref ready
+          setRemoteVideoTracks((prev) => [...prev, track]);
+        }
+      });
+
+      // TrackPublished: tenter de souscrire automatiquement aux publications
+      room.on(RoomEvent.TrackPublished, async (publication, participant) => {
+        console.log('TrackPublished', {
+          sid: (publication as any).sid ?? undefined,
+          kind: (publication as any).kind ?? undefined,
+          isSubscribed: publication.isSubscribed,
+          publisher: participant?.identity ?? undefined,
+        }, publication);
+        try {
+          if (!publication.isSubscribed) {
+            await publication.setSubscribed(true);
+            console.log('setSubscribed OK for', (publication as any).sid ?? publication.trackSid);
+          }
+          if (publication.track && publication.track.kind === Track.Kind.Video) {
+            // si track déjà disponible, l'ajouter
+            setRemoteVideoTracks((prev) => [...prev, publication.track as Track]);
+          }
+        } catch (e) {
+          console.error('Error subscribing to publication', e, publication);
         }
       });
 
@@ -129,29 +171,95 @@ export default function InterviewApp() {
 
       // Connexion
       await room.connect(url, token);
-      console.log('🎉 Connecté à la room:', roomName);
-      
+      console.log("🎉 Connecté à la room:", roomName);
+
+      // Log remote participants + publications after connect
+      console.log('Connected to room, remoteParticipants count:', room.remoteParticipants.size);
+      room.remoteParticipants.forEach((p: any) => {
+        console.log('RemoteParticipant', p.identity, 'id', p.sid);
+        p.trackPublications.forEach((pub: any) => {
+          console.log('  publication', {
+            sid: pub.sid ?? undefined,
+            kind: pub.kind ?? undefined,
+            isSubscribed: pub.isSubscribed,
+            hasTrack: !!pub.track,
+          }, pub);
+        });
+      });
+
+      // Si quelqu'un est déjà dans la room, afficher son nom
+      if (room.remoteParticipants.size > 0) {
+        const first = room.remoteParticipants.values().next().value;
+        if (first) {
+          setRemoteParticipant({ name: first.identity, identity: first.identity });
+        }
+      }
+      // Souscrire / attacher aux tracks déjà publiées
+      room.remoteParticipants.forEach((participant) => {
+        participant.trackPublications.forEach(async (publication: any) => {
+          try {
+            console.log('Existing publication', {
+              sid: publication.sid ?? undefined,
+              kind: publication.kind ?? undefined,
+              isSubscribed: publication.isSubscribed,
+            }, publication);
+            if (!publication.isSubscribed) {
+              await publication.setSubscribed(true);
+              console.log('setSubscribed OK for existing pub', publication.sid ?? publication.trackSid);
+            }
+            if (publication.track && publication.track.kind === Track.Kind.Video) {
+              setRemoteVideoTracks((prev) => [...prev, publication.track as Track]);
+            }
+            if (publication.track && publication.track.kind === Track.Kind.Audio) {
+              publication.track.attach();
+            }
+          } catch (e) {
+            console.error('Error processing existing publication', e, publication);
+          }
+        });
+      });
+
+      // If participants were already in the room before we connected, set the remote participant state
+      if (room.remoteParticipants.size > 0) {
+        const first = room.remoteParticipants.values().next().value;
+        if (first) {
+          setRemoteParticipant({ name: first.identity, identity: first.identity });
+        }
+      }
       // Publier notre audio/vidéo
       if (localStreamRef.current) {
-        const audioTrack = localStreamRef.current.getAudioTracks()[0];
-        const videoTrack = localStreamRef.current.getVideoTracks()[0];
-        
-        await room.localParticipant.publishTrack(audioTrack);
-        await room.localParticipant.publishTrack(videoTrack);
-        console.log('📤 Audio/Vidéo publiés');
+        // const audioTrack = localStreamRef.current.getAudioTracks()[0];
+        // const videoTrack = localStreamRef.current.getVideoTracks()[0];
+
+        // await room.localParticipant.publishTrack(audioTrack);
+        // await room.localParticipant.publishTrack(videoTrack);
+        await room.localParticipant.setCameraEnabled(true);
+        await room.localParticipant.setMicrophoneEnabled(true);
+
+        console.log('Local participant video publications:');
+        room.localParticipant.videoTrackPublications.forEach((pub: any) => {
+          console.log('  local pub', {
+            sid: pub.sid ?? undefined,
+            isSubscribed: pub.isSubscribed,
+            hasTrack: !!pub.track,
+          }, pub);
+        });
+
+        console.log("📤 Audio/Vidéo publiés");
       }
-      
+
       setIsLivekitConnected(true);
-      
 
       // ⚠️ CODE TEMPORAIRE - À SUPPRIMER
-      console.log('Token reçu:', token);
-      console.log('URL:', url);
-      setError('✅ Token obtenu ! Installez livekit-client et décommentez le code (voir console)');
-      
+      console.log("Token reçu:", token);
+      console.log("URL:", url);
+      setError(
+        "✅ Token obtenu ! Installez livekit-client et décommentez le code (voir console)",
+      );
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Erreur inconnue';
-      setError('Erreur: ' + errorMessage);
+      const errorMessage =
+        err instanceof Error ? err.message : "Erreur inconnue";
+      setError("Erreur: " + errorMessage);
       setIsLivekitConnected(false);
     } finally {
       setIsConnecting(false);
@@ -160,13 +268,14 @@ export default function InterviewApp() {
 
   const disconnectFromLivekit = (): void => {
     if (roomRef.current) {
-      // roomRef.current.disconnect();
+      roomRef.current.disconnect();
       roomRef.current = null;
     }
-    
+
     setIsLivekitConnected(false);
     setRemoteParticipant(null);
-    
+    setRemoteVideoTracks([]);
+
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = null;
     }
@@ -182,24 +291,23 @@ export default function InterviewApp() {
     };
   }, [isConnected]);
 
-  const toggleAudio = (): void => {
-    if (localStreamRef.current) {
-      const audioTrack = localStreamRef.current.getAudioTracks()[0];
-      if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        setIsAudioEnabled(audioTrack.enabled);
-      }
-    }
+  const toggleAudio = async () => {
+    const room = roomRef.current;
+    if (!room?.localParticipant) return;
+
+    const enabled = !isAudioEnabled;
+
+    await room.localParticipant.setMicrophoneEnabled(enabled);
+    setIsAudioEnabled(enabled);
   };
 
-  const toggleVideo = (): void => {
-    if (localStreamRef.current) {
-      const videoTrack = localStreamRef.current.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = !videoTrack.enabled;
-        setIsVideoEnabled(videoTrack.enabled);
-      }
-    }
+  const toggleVideo = async () => {
+    const room = roomRef.current;
+    if (!room?.localParticipant) return;
+
+    const enabled = !isVideoEnabled;
+    await room.localParticipant.setCameraEnabled(enabled);
+    setIsVideoEnabled(enabled);
   };
 
   const handleJoin = (): void => {
@@ -216,7 +324,7 @@ export default function InterviewApp() {
 
   if (!isConnected) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-6">
+      <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-6">
         <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full">
           <div className="text-center mb-6">
             <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -277,7 +385,9 @@ export default function InterviewApp() {
             <ol className="text-xs text-blue-700 space-y-1">
               <li>1. Créez `.env.local` avec vos clés LiveKit</li>
               <li>2. Créez `app/api/livekit-token/route.ts`</li>
-              <li>3. Installez: `npm install livekit-client livekit-server-sdk`</li>
+              <li>
+                3. Installez: `npm install livekit-client livekit-server-sdk`
+              </li>
               <li>4. Décommentez le code LiveKit</li>
             </ol>
           </div>
@@ -287,7 +397,7 @@ export default function InterviewApp() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
+    <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 p-6">
       <div className="max-w-6xl mx-auto">
         <div className="bg-white rounded-xl shadow-lg p-4 mb-6">
           <div className="flex items-center justify-between">
@@ -296,7 +406,8 @@ export default function InterviewApp() {
                 {userName}
               </h2>
               <p className="text-sm text-gray-600">
-                Salle : <span className="font-mono text-blue-600">{roomName}</span>
+                Salle :{" "}
+                <span className="font-mono text-blue-600">{roomName}</span>
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -307,17 +418,17 @@ export default function InterviewApp() {
                   className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg transition text-sm font-medium flex items-center gap-2"
                 >
                   <Wifi size={16} />
-                  {isConnecting ? 'Connexion...' : 'Connecter LiveKit'}
+                  {isConnecting ? "Connexion..." : "Connecter LiveKit"}
                 </button>
               )}
-              
+
               {isLivekitConnected && (
                 <div className="flex items-center gap-2 text-green-600 text-sm font-medium">
                   <Wifi size={16} />
                   <span>Connecté</span>
                 </div>
               )}
-              
+
               <button
                 onClick={handleLeave}
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition text-sm font-medium"
@@ -375,8 +486,8 @@ export default function InterviewApp() {
                   <div className="animate-pulse">
                     <Video size={48} className="mx-auto mb-2 opacity-50" />
                     <p className="text-sm">
-                      {isLivekitConnected 
-                        ? 'En attente de l\'autre participant...' 
+                      {isLivekitConnected
+                        ? "En attente de l'autre participant..."
                         : 'Cliquez sur "Connecter LiveKit"'}
                     </p>
                   </div>
@@ -390,22 +501,32 @@ export default function InterviewApp() {
           <div className="flex items-center justify-center gap-4">
             <button
               onClick={toggleAudio}
-              className={'p-4 rounded-full transition ' + (isAudioEnabled ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-red-600 hover:bg-red-700 text-white')}
+              className={
+                "p-4 rounded-full transition " +
+                (isAudioEnabled
+                  ? "bg-gray-700 hover:bg-gray-600 text-white"
+                  : "bg-red-600 hover:bg-red-700 text-white")
+              }
             >
               {isAudioEnabled ? <Mic size={24} /> : <MicOff size={24} />}
             </button>
 
             <button
               onClick={toggleVideo}
-              className={'p-4 rounded-full transition ' + (isVideoEnabled ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-red-600 hover:bg-red-700 text-white')}
+              className={
+                "p-4 rounded-full transition " +
+                (isVideoEnabled
+                  ? "bg-gray-700 hover:bg-gray-600 text-white"
+                  : "bg-red-600 hover:bg-red-700 text-white")
+              }
             >
               {isVideoEnabled ? <Video size={24} /> : <VideoOff size={24} />}
             </button>
           </div>
 
           <div className="mt-4 text-center text-sm text-gray-600">
-            {isAudioEnabled ? '🎤 Micro activé' : '🔇 Micro coupé'} • 
-            {isVideoEnabled ? ' 📹 Caméra activée' : ' 📷 Caméra désactivée'}
+            {isAudioEnabled ? "🎤 Micro activé" : "🔇 Micro coupé"} •
+            {isVideoEnabled ? " 📹 Caméra activée" : " 📷 Caméra désactivée"}
           </div>
         </div>
       </div>
