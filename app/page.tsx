@@ -19,12 +19,29 @@ export default function InterviewApp() {
   const [isLivekitConnected, setIsLivekitConnected] = useState<boolean>(false);
   const [remoteParticipant, setRemoteParticipant] =
     useState<Participant | null>(null);
+  const [remoteVideoTracks, setRemoteVideoTracks] = useState<Track[]>([]);
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const roomRef = useRef<any>(null);
+
+  // Attacher les tracks vidéo quand le ref est prêt
+  useEffect(() => {
+    if (remoteVideoRef.current && remoteVideoTracks.length > 0) {
+      remoteVideoTracks.forEach((track) => {
+        if (
+          track.kind === Track.Kind.Video &&
+          !(track as any).attachedElements?.includes(remoteVideoRef.current)
+        ) {
+          track.attach(remoteVideoRef.current as HTMLVideoElement);
+          console.log('Attached video track to remote video', remoteVideoRef.current?.srcObject);
+          remoteVideoRef.current?.play().catch((err) => console.error('Play failed', err));
+        }
+      });
+    }
+  }, [remoteVideoTracks]);
 
   // Démarrer la caméra et le micro
   const startLocalMedia = async (): Promise<void> => {
@@ -111,22 +128,40 @@ export default function InterviewApp() {
 
       // Écouter les nouvelles pistes vidéo/audio
       room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
-        console.log(
-          "📹 Nouvelle piste:",
-          track.kind,
-          "de",
-          participant.identity,
-        );
-
-        if (track.kind === Track.Kind.Video) {
-          const videoElement = remoteVideoRef.current;
-          if (videoElement) {
-            track.attach(videoElement);
-          }
-        }
+        console.log('TrackSubscribed', {
+          kind: track.kind,
+          sid: (track as any).sid ?? undefined,
+          attached: (track as any).attachedElements?.length ?? 0,
+          publisher: participant?.identity ?? undefined,
+        }, track);
 
         if (track.kind === Track.Kind.Audio) {
           track.attach();
+        } else if (track.kind === Track.Kind.Video) {
+          // push to state and attach from useEffect when ref ready
+          setRemoteVideoTracks((prev) => [...prev, track]);
+        }
+      });
+
+      // TrackPublished: tenter de souscrire automatiquement aux publications
+      room.on(RoomEvent.TrackPublished, async (publication, participant) => {
+        console.log('TrackPublished', {
+          sid: (publication as any).sid ?? undefined,
+          kind: (publication as any).kind ?? undefined,
+          isSubscribed: publication.isSubscribed,
+          publisher: participant?.identity ?? undefined,
+        }, publication);
+        try {
+          if (!publication.isSubscribed) {
+            await publication.setSubscribed(true);
+            console.log('setSubscribed OK for', (publication as any).sid ?? publication.trackSid);
+          }
+          if (publication.track && publication.track.kind === Track.Kind.Video) {
+            // si track déjà disponible, l'ajouter
+            setRemoteVideoTracks((prev) => [...prev, publication.track as Track]);
+          }
+        } catch (e) {
+          console.error('Error subscribing to publication', e, publication);
         }
       });
 
@@ -138,22 +173,59 @@ export default function InterviewApp() {
       await room.connect(url, token);
       console.log("🎉 Connecté à la room:", roomName);
 
-      // récupérer les tracks vidéos et audio des participants déjà connectés
+      // Log remote participants + publications after connect
+      console.log('Connected to room, remoteParticipants count:', room.remoteParticipants.size);
+      room.remoteParticipants.forEach((p: any) => {
+        console.log('RemoteParticipant', p.identity, 'id', p.sid);
+        p.trackPublications.forEach((pub: any) => {
+          console.log('  publication', {
+            sid: pub.sid ?? undefined,
+            kind: pub.kind ?? undefined,
+            isSubscribed: pub.isSubscribed,
+            hasTrack: !!pub.track,
+          }, pub);
+        });
+      });
+
+      // Si quelqu'un est déjà dans la room, afficher son nom
+      if (room.remoteParticipants.size > 0) {
+        const first = room.remoteParticipants.values().next().value;
+        if (first) {
+          setRemoteParticipant({ name: first.identity, identity: first.identity });
+        }
+      }
+      // Souscrire / attacher aux tracks déjà publiées
       room.remoteParticipants.forEach((participant) => {
-        participant.trackPublications.forEach((publication) => {
-          const track = publication.track;
-          if (!track) return;
-
-          if (track.kind === Track.Kind.Video) {
-            track.attach(remoteVideoRef.current!);
-          }
-
-          if (track.kind === Track.Kind.Audio) {
-            track.attach();
+        participant.trackPublications.forEach(async (publication: any) => {
+          try {
+            console.log('Existing publication', {
+              sid: publication.sid ?? undefined,
+              kind: publication.kind ?? undefined,
+              isSubscribed: publication.isSubscribed,
+            }, publication);
+            if (!publication.isSubscribed) {
+              await publication.setSubscribed(true);
+              console.log('setSubscribed OK for existing pub', publication.sid ?? publication.trackSid);
+            }
+            if (publication.track && publication.track.kind === Track.Kind.Video) {
+              setRemoteVideoTracks((prev) => [...prev, publication.track as Track]);
+            }
+            if (publication.track && publication.track.kind === Track.Kind.Audio) {
+              publication.track.attach();
+            }
+          } catch (e) {
+            console.error('Error processing existing publication', e, publication);
           }
         });
       });
 
+      // If participants were already in the room before we connected, set the remote participant state
+      if (room.remoteParticipants.size > 0) {
+        const first = room.remoteParticipants.values().next().value;
+        if (first) {
+          setRemoteParticipant({ name: first.identity, identity: first.identity });
+        }
+      }
       // Publier notre audio/vidéo
       if (localStreamRef.current) {
         // const audioTrack = localStreamRef.current.getAudioTracks()[0];
@@ -163,6 +235,15 @@ export default function InterviewApp() {
         // await room.localParticipant.publishTrack(videoTrack);
         await room.localParticipant.setCameraEnabled(true);
         await room.localParticipant.setMicrophoneEnabled(true);
+
+        console.log('Local participant video publications:');
+        room.localParticipant.videoTrackPublications.forEach((pub: any) => {
+          console.log('  local pub', {
+            sid: pub.sid ?? undefined,
+            isSubscribed: pub.isSubscribed,
+            hasTrack: !!pub.track,
+          }, pub);
+        });
 
         console.log("📤 Audio/Vidéo publiés");
       }
@@ -193,6 +274,7 @@ export default function InterviewApp() {
 
     setIsLivekitConnected(false);
     setRemoteParticipant(null);
+    setRemoteVideoTracks([]);
 
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = null;
