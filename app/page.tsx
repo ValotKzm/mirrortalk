@@ -402,7 +402,7 @@ export default function InterviewApp() {
             </p>
             <ol className="text-xs text-blue-700 space-y-1">
               <li>1. Partager le nom de room avec votre binôme</li>
-              <li>2. Rejoignez la room`</li>
+              <li>2. Rejoignez la room</li>
               <li>
                 3. Connectez vous à grâce au bouton "se connecter à Livekit"
               </li>
