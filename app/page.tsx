@@ -36,8 +36,9 @@ export default function InterviewApp() {
           !(track as any).attachedElements?.includes(remoteVideoRef.current)
         ) {
           track.attach(remoteVideoRef.current as HTMLVideoElement);
-          console.log('Attached video track to remote video', remoteVideoRef.current?.srcObject);
-          remoteVideoRef.current?.play().catch((err) => console.error('Play failed', err));
+          remoteVideoRef.current
+            ?.play()
+            .catch((err) => console.error("Play failed", err));
         }
       });
     }
@@ -114,7 +115,6 @@ export default function InterviewApp() {
 
       // Écouter les événements de participants
       room.on(RoomEvent.ParticipantConnected, (participant) => {
-        console.log("✅ Participant connecté:", participant.identity);
         setRemoteParticipant({
           name: participant.identity,
           identity: participant.identity,
@@ -122,19 +122,11 @@ export default function InterviewApp() {
       });
 
       room.on(RoomEvent.ParticipantDisconnected, (participant) => {
-        console.log("❌ Participant déconnecté:", participant.identity);
         setRemoteParticipant(null);
       });
 
       // Écouter les nouvelles pistes vidéo/audio
       room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
-        console.log('TrackSubscribed', {
-          kind: track.kind,
-          sid: (track as any).sid ?? undefined,
-          attached: (track as any).attachedElements?.length ?? 0,
-          publisher: participant?.identity ?? undefined,
-        }, track);
-
         if (track.kind === Track.Kind.Audio) {
           track.attach();
         } else if (track.kind === Track.Kind.Video) {
@@ -145,23 +137,22 @@ export default function InterviewApp() {
 
       // TrackPublished: tenter de souscrire automatiquement aux publications
       room.on(RoomEvent.TrackPublished, async (publication, participant) => {
-        console.log('TrackPublished', {
-          sid: (publication as any).sid ?? undefined,
-          kind: (publication as any).kind ?? undefined,
-          isSubscribed: publication.isSubscribed,
-          publisher: participant?.identity ?? undefined,
-        }, publication);
         try {
           if (!publication.isSubscribed) {
             await publication.setSubscribed(true);
-            console.log('setSubscribed OK for', (publication as any).sid ?? publication.trackSid);
           }
-          if (publication.track && publication.track.kind === Track.Kind.Video) {
+          if (
+            publication.track &&
+            publication.track.kind === Track.Kind.Video
+          ) {
             // si track déjà disponible, l'ajouter
-            setRemoteVideoTracks((prev) => [...prev, publication.track as Track]);
+            setRemoteVideoTracks((prev) => [
+              ...prev,
+              publication.track as Track,
+            ]);
           }
         } catch (e) {
-          console.error('Error subscribing to publication', e, publication);
+          console.error("Error subscribing to publication", e, publication);
         }
       });
 
@@ -171,50 +162,57 @@ export default function InterviewApp() {
 
       // Connexion
       await room.connect(url, token);
-      console.log("🎉 Connecté à la room:", roomName);
 
       // Log remote participants + publications after connect
-      console.log('Connected to room, remoteParticipants count:', room.remoteParticipants.size);
-      room.remoteParticipants.forEach((p: any) => {
-        console.log('RemoteParticipant', p.identity, 'id', p.sid);
-        p.trackPublications.forEach((pub: any) => {
-          console.log('  publication', {
-            sid: pub.sid ?? undefined,
-            kind: pub.kind ?? undefined,
-            isSubscribed: pub.isSubscribed,
-            hasTrack: !!pub.track,
-          }, pub);
-        });
-      });
+      // room.remoteParticipants.forEach((p: any) => {
+      //   p.trackPublications.forEach((pub: any) => {
+      //     console.log('  publication', {
+      //       sid: pub.sid ?? undefined,
+      //       kind: pub.kind ?? undefined,
+      //       isSubscribed: pub.isSubscribed,
+      //       hasTrack: !!pub.track,
+      //     }, pub);
+      //   });
+      // });
 
       // Si quelqu'un est déjà dans la room, afficher son nom
       if (room.remoteParticipants.size > 0) {
         const first = room.remoteParticipants.values().next().value;
         if (first) {
-          setRemoteParticipant({ name: first.identity, identity: first.identity });
+          setRemoteParticipant({
+            name: first.identity,
+            identity: first.identity,
+          });
         }
       }
       // Souscrire / attacher aux tracks déjà publiées
       room.remoteParticipants.forEach((participant) => {
         participant.trackPublications.forEach(async (publication: any) => {
           try {
-            console.log('Existing publication', {
-              sid: publication.sid ?? undefined,
-              kind: publication.kind ?? undefined,
-              isSubscribed: publication.isSubscribed,
-            }, publication);
             if (!publication.isSubscribed) {
               await publication.setSubscribed(true);
-              console.log('setSubscribed OK for existing pub', publication.sid ?? publication.trackSid);
             }
-            if (publication.track && publication.track.kind === Track.Kind.Video) {
-              setRemoteVideoTracks((prev) => [...prev, publication.track as Track]);
+            if (
+              publication.track &&
+              publication.track.kind === Track.Kind.Video
+            ) {
+              setRemoteVideoTracks((prev) => [
+                ...prev,
+                publication.track as Track,
+              ]);
             }
-            if (publication.track && publication.track.kind === Track.Kind.Audio) {
+            if (
+              publication.track &&
+              publication.track.kind === Track.Kind.Audio
+            ) {
               publication.track.attach();
             }
           } catch (e) {
-            console.error('Error processing existing publication', e, publication);
+            console.error(
+              "Error processing existing publication",
+              e,
+              publication,
+            );
           }
         });
       });
@@ -223,39 +221,27 @@ export default function InterviewApp() {
       if (room.remoteParticipants.size > 0) {
         const first = room.remoteParticipants.values().next().value;
         if (first) {
-          setRemoteParticipant({ name: first.identity, identity: first.identity });
+          setRemoteParticipant({
+            name: first.identity,
+            identity: first.identity,
+          });
         }
       }
       // Publier notre audio/vidéo
       if (localStreamRef.current) {
-        // const audioTrack = localStreamRef.current.getAudioTracks()[0];
-        // const videoTrack = localStreamRef.current.getVideoTracks()[0];
-
-        // await room.localParticipant.publishTrack(audioTrack);
-        // await room.localParticipant.publishTrack(videoTrack);
         await room.localParticipant.setCameraEnabled(true);
         await room.localParticipant.setMicrophoneEnabled(true);
 
-        console.log('Local participant video publications:');
-        room.localParticipant.videoTrackPublications.forEach((pub: any) => {
-          console.log('  local pub', {
-            sid: pub.sid ?? undefined,
-            isSubscribed: pub.isSubscribed,
-            hasTrack: !!pub.track,
-          }, pub);
-        });
-
-        console.log("📤 Audio/Vidéo publiés");
+        // room.localParticipant.videoTrackPublications.forEach((pub: any) => {
+        //   console.log('  local pub', {
+        //     sid: pub.sid ?? undefined,
+        //     isSubscribed: pub.isSubscribed,
+        //     hasTrack: !!pub.track,
+        //   }, pub);
+        // });
       }
 
       setIsLivekitConnected(true);
-
-      // ⚠️ CODE TEMPORAIRE - À SUPPRIMER
-      console.log("Token reçu:", token);
-      console.log("URL:", url);
-      setError(
-        "✅ Token obtenu ! Installez livekit-client et décommentez le code (voir console)",
-      );
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Erreur inconnue";
@@ -352,7 +338,7 @@ export default function InterviewApp() {
                 value={roomName}
                 onChange={(e) => setRoomName(e.target.value)}
                 placeholder="ex: entretien-dev"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 border border-gray-300 placeholder-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
@@ -365,7 +351,7 @@ export default function InterviewApp() {
                 value={userName}
                 onChange={(e) => setUserName(e.target.value)}
                 placeholder="ex: Marie Dupont"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 border border-gray-300 placeholder-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
@@ -380,15 +366,15 @@ export default function InterviewApp() {
 
           <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-800 font-medium mb-2">
-              📋 Setup Next.js:
+              📋 Connectez vous et échangez.
             </p>
             <ol className="text-xs text-blue-700 space-y-1">
-              <li>1. Créez `.env.local` avec vos clés LiveKit</li>
-              <li>2. Créez `app/api/livekit-token/route.ts`</li>
+              <li>1. Partager le nom de room avec votre binôme</li>
+              <li>2. Rejoignez la room`</li>
               <li>
-                3. Installez: `npm install livekit-client livekit-server-sdk`
+                3. Connectez vous à grâce au bouton "se connecter à Livekit"
               </li>
-              <li>4. Décommentez le code LiveKit</li>
+              <li>4. Bon entrainement !</li>
             </ol>
           </div>
         </div>
