@@ -1,6 +1,6 @@
-"use server"
-import { AccessToken } from 'livekit-server-sdk';
-import { NextRequest, NextResponse } from 'next/server';
+"use server";
+import { AccessToken } from "livekit-server-sdk";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,8 +8,8 @@ export async function POST(request: NextRequest) {
 
     if (!roomName || !participantName) {
       return NextResponse.json(
-        { error: 'roomName et participantName requis' },
-        { status: 400 }
+        { error: "roomName et participantName requis" },
+        { status: 400 },
       );
     }
 
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
       process.env.LIVEKIT_API_SECRET,
       {
         identity: participantName,
-      }
+      },
     );
 
     // Donner les permissions pour rejoindre la room
@@ -37,10 +37,7 @@ export async function POST(request: NextRequest) {
       url: process.env.LIVEKIT_URL,
     });
   } catch (error) {
-    console.error('Erreur génération token:', error);
-    return NextResponse.json(
-      { error: 'Erreur serveur' },
-      { status: 500 }
-    );
+    console.error("Erreur génération token:", error);
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }
