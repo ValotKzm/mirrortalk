@@ -398,13 +398,15 @@ export default function InterviewApp() {
 
           <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-800 font-medium mb-2">
-              📋 Version SDK Deepgram
+              📋 Connectez vous et échangez.
             </p>
             <ol className="text-xs text-blue-700 space-y-1">
-              <li>✅ SDK officiel @deepgram/sdk</li>
-              <li>✅ Code plus simple et propre</li>
-              <li>✅ Gestion auto des reconnexions</li>
-              <li>✅ MediaRecorder au lieu d'AudioContext</li>
+              <li>1. Partager le nom de room avec votre binôme</li>
+              <li>2. Rejoignez la room`</li>
+              <li>
+                3. Connectez vous à grâce au bouton "se connecter à Livekit"
+              </li>
+              <li>4. Bon entrainement !</li>
             </ol>
           </div>
         </div>
