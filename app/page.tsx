@@ -1,8 +1,10 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
-import { Video, Mic, MicOff, VideoOff, Wifi, Download } from "lucide-react";
+import { Video, Mic, MicOff, VideoOff, Wifi } from "lucide-react";
 import { Room, RoomEvent, Track } from "livekit-client";
 import DeepgramTranscription from "./components/DeepgramTranscription";
+import DeepgramRemoteTranscription from "./components/DeepgramRemoteTranscription";
+import TranscriptionPanel from "./components/TranscriptionPanel";
 
 // Types
 interface Participant {
@@ -25,40 +27,33 @@ export default function InterviewApp() {
   const [isVideoEnabled, setIsVideoEnabled] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
   const [isLivekitConnected, setIsLivekitConnected] = useState<boolean>(false);
-  const [isTranscriptionEnabled, setIsTranscriptionEnabled] =
-    useState<boolean>(false);
-  const [remoteParticipant, setRemoteParticipant] =
-    useState<Participant | null>(null);
+  const [isTranscriptionEnabled, setIsTranscriptionEnabled] = useState<boolean>(false);
+  const [remoteParticipant, setRemoteParticipant] = useState<Participant | null>(null);
   const [remoteVideoTracks, setRemoteVideoTracks] = useState<Track[]>([]);
+  const [remoteAudioTrack, setRemoteAudioTrack] = useState<Track | null>(null);
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
-  const [deepgramStatus, setDeepgramStatus] = useState<string>("");
+  const [localDeepgramStatus, setLocalDeepgramStatus] = useState<string>("");
+  const [remoteDeepgramStatus, setRemoteDeepgramStatus] = useState<string>("");
   const [transcripts, setTranscripts] = useState<TranscriptEntry[]>([]);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
-  const roomRef = useRef<any>(null);
-  const transcriptEndRef = useRef<HTMLDivElement>(null);
+  const roomRef = useRef<Room | null>(null);
 
-  // Auto-scroll vers le bas des transcriptions
-  useEffect(() => {
-    transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [transcripts]);
-
-  // Callback pour recevoir les transcriptions (audio LOCAL)
-  const handleTranscript = (transcript: string, isFinal: boolean) => {
+  // Callback pour recevoir les transcriptions LOCALES
+  const handleLocalTranscript = (transcript: string, isFinal: boolean) => {
     const now = new Date();
     const timestamp = now.toLocaleTimeString("fr-FR");
 
     const newEntry: TranscriptEntry = {
       timestamp,
-      speaker: userName, // C'est vous qui parlez
+      speaker: userName,
       text: transcript,
       isFinal,
     };
 
     setTranscripts((prev) => {
-      // Si c'est une transcription provisoire, remplacer la dernière entrée du même speaker
       if (!isFinal) {
         const lastIndex = prev.length - 1;
         if (
@@ -71,14 +66,37 @@ export default function InterviewApp() {
           return updated;
         }
       }
-      // Sinon ajouter une nouvelle entrée
       return [...prev, newEntry];
     });
   };
 
-  // Callback pour le statut Deepgram
-  const handleDeepgramStatus = (status: string) => {
-    setDeepgramStatus(status);
+  // Callback pour recevoir les transcriptions DISTANTES
+  const handleRemoteTranscript = (transcript: string, isFinal: boolean, speaker: string) => {
+    const now = new Date();
+    const timestamp = now.toLocaleTimeString("fr-FR");
+
+    const newEntry: TranscriptEntry = {
+      timestamp,
+      speaker,
+      text: transcript,
+      isFinal,
+    };
+
+    setTranscripts((prev) => {
+      if (!isFinal) {
+        const lastIndex = prev.length - 1;
+        if (
+          lastIndex >= 0 &&
+          !prev[lastIndex].isFinal &&
+          prev[lastIndex].speaker === speaker
+        ) {
+          const updated = [...prev];
+          updated[lastIndex] = newEntry;
+          return updated;
+        }
+      }
+      return [...prev, newEntry];
+    });
   };
 
   // Fonction pour exporter la transcription
@@ -97,7 +115,7 @@ export default function InterviewApp() {
     URL.revokeObjectURL(url);
   };
 
-  // Attacher les tracks vidéo quand le ref est prêt
+  // Attacher les tracks vidéo
   useEffect(() => {
     if (remoteVideoRef.current && remoteVideoTracks.length > 0) {
       remoteVideoTracks.forEach((track) => {
@@ -114,7 +132,6 @@ export default function InterviewApp() {
     }
   }, [remoteVideoTracks]);
 
-  // Démarrer la caméra et le micro
   const startLocalMedia = async (): Promise<void> => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -146,7 +163,6 @@ export default function InterviewApp() {
     }
   };
 
-  // Connexion à LiveKit
   const connectToLivekit = async (): Promise<void> => {
     try {
       setError("");
@@ -177,6 +193,7 @@ export default function InterviewApp() {
       roomRef.current = room;
 
       room.on(RoomEvent.ParticipantConnected, (participant) => {
+        console.log('👤 Participant connecté:', participant.identity);
         setRemoteParticipant({
           name: participant.identity,
           identity: participant.identity,
@@ -184,12 +201,18 @@ export default function InterviewApp() {
       });
 
       room.on(RoomEvent.ParticipantDisconnected, (participant) => {
+        console.log('👤 Participant déconnecté:', participant.identity);
         setRemoteParticipant(null);
+        setRemoteAudioTrack(null);
       });
 
       room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
+        console.log('📡 Track souscrit:', track.kind, 'de', participant.identity);
+        
         if (track.kind === Track.Kind.Audio) {
-          track.attach();
+          console.log('🎤 Track audio distant reçu !');
+          setRemoteAudioTrack(track);
+          track.attach(); // Jouer l'audio pour l'entendre
         } else if (track.kind === Track.Kind.Video) {
           setRemoteVideoTracks((prev) => [...prev, track]);
         }
@@ -209,6 +232,13 @@ export default function InterviewApp() {
               publication.track as Track,
             ]);
           }
+          if (
+            publication.track &&
+            publication.track.kind === Track.Kind.Audio
+          ) {
+            console.log('🎤 Track audio distant via TrackPublished');
+            setRemoteAudioTrack(publication.track);
+          }
         } catch (e) {
           console.error("Error subscribing to publication", e);
         }
@@ -216,6 +246,9 @@ export default function InterviewApp() {
 
       room.on(RoomEvent.TrackUnsubscribed, (track) => {
         track.detach();
+        if (track.kind === Track.Kind.Audio) {
+          setRemoteAudioTrack(null);
+        }
       });
 
       await room.connect(url, token);
@@ -249,6 +282,8 @@ export default function InterviewApp() {
               publication.track &&
               publication.track.kind === Track.Kind.Audio
             ) {
+              console.log('🎤 Track audio existant trouvé');
+              setRemoteAudioTrack(publication.track);
               publication.track.attach();
             }
           } catch (e) {
@@ -283,6 +318,7 @@ export default function InterviewApp() {
     setIsTranscriptionEnabled(false);
     setRemoteParticipant(null);
     setRemoteVideoTracks([]);
+    setRemoteAudioTrack(null);
 
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = null;
@@ -329,17 +365,6 @@ export default function InterviewApp() {
     setIsConnected(false);
   };
 
-  // Obtenir la couleur selon le speaker
-  const getSpeakerColor = (speaker: string) => {
-    return speaker === userName
-      ? { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700" }
-      : {
-          bg: "bg-green-50",
-          border: "border-green-200",
-          text: "text-green-700",
-        };
-  };
-
   if (!isConnected) {
     return (
       <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-6">
@@ -351,7 +376,7 @@ export default function InterviewApp() {
             <h1 className="text-2xl font-bold text-gray-800">
               Simulateur d'Entretien
             </h1>
-            <p className="text-gray-600 mt-2">Transcription temps réel</p>
+            <p className="text-gray-600 mt-2">Transcription 2 participants</p>
           </div>
 
           {error && (
@@ -370,7 +395,7 @@ export default function InterviewApp() {
                 value={roomName}
                 onChange={(e) => setRoomName(e.target.value)}
                 placeholder="ex: entretien-dev"
-                className="w-full px-4 py-3 border border-gray-300 placeholder-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
@@ -383,7 +408,7 @@ export default function InterviewApp() {
                 value={userName}
                 onChange={(e) => setUserName(e.target.value)}
                 placeholder="ex: Marie Dupont"
-                className="w-full px-4 py-3 border border-gray-300 placeholder-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
@@ -416,27 +441,35 @@ export default function InterviewApp() {
 
   return (
     <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 p-6">
-      {/* Composant Deepgram invisible */}
+      {/* Transcription LOCAL */}
       <DeepgramTranscription
         audioStream={localStreamRef.current}
         isEnabled={isTranscriptionEnabled}
-        onTranscript={handleTranscript}
-        onStatusChange={handleDeepgramStatus}
+        onTranscript={handleLocalTranscript}
+        onStatusChange={setLocalDeepgramStatus}
+      />
+
+      {/* Transcription DISTANT */}
+      <DeepgramRemoteTranscription
+        remoteAudioTrack={remoteAudioTrack}
+        remoteSpeakerName={remoteParticipant?.name || "Participant distant"}
+        isEnabled={isTranscriptionEnabled && !!remoteAudioTrack}
+        onTranscript={handleRemoteTranscript}
+        onStatusChange={setRemoteDeepgramStatus}
       />
 
       <div className="max-w-7xl mx-auto">
         <div className="bg-white rounded-xl shadow-lg p-4 mb-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
               <h2 className="text-xl font-semibold text-gray-800">
                 {userName}
               </h2>
               <p className="text-sm text-gray-600">
-                Salle :{" "}
-                <span className="font-mono text-blue-600">{roomName}</span>
+                Salle : <span className="font-mono text-blue-600">{roomName}</span>
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               {!isLivekitConnected && (
                 <button
                   onClick={connectToLivekit}
@@ -444,7 +477,7 @@ export default function InterviewApp() {
                   className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg transition text-sm font-medium flex items-center gap-2"
                 >
                   <Wifi size={16} />
-                  {isConnecting ? "Connexion..." : "Connecter LiveKit"}
+                  {isConnecting ? "Connexion..." : "Connecter"}
                 </button>
               )}
 
@@ -462,31 +495,26 @@ export default function InterviewApp() {
                   onClick={() => setIsTranscriptionEnabled(false)}
                   className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition text-sm font-medium"
                 >
-                  ⏸️ Arrêter transcription
-                </button>
-              )}
-
-              {transcripts.filter((t) => t.isFinal).length > 0 && (
-                <button
-                  onClick={exportTranscript}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition text-sm font-medium flex items-center gap-2"
-                  title="Exporter la transcription"
-                >
-                  <Download size={16} />
-                  Exporter
+                  ⏸️ Arrêter
                 </button>
               )}
 
               {isLivekitConnected && (
-                <div className="flex items-center gap-2 text-green-600 text-sm font-medium">
+                <div className="text-green-600 text-sm font-medium flex items-center gap-2">
                   <Wifi size={16} />
-                  <span>LiveKit ✓</span>
+                  LiveKit ✓
                 </div>
               )}
 
-              {deepgramStatus && (
-                <div className="text-purple-600 text-sm font-medium">
-                  {deepgramStatus}
+              {localDeepgramStatus && (
+                <div className="text-blue-600 text-xs">
+                  Local: {localDeepgramStatus}
+                </div>
+              )}
+
+              {remoteDeepgramStatus && (
+                <div className="text-green-600 text-xs">
+                  Distant: {remoteDeepgramStatus}
                 </div>
               )}
 
@@ -507,7 +535,6 @@ export default function InterviewApp() {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Vidéos */}
           <div className="lg:col-span-2 space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-gray-900 rounded-xl overflow-hidden aspect-video relative">
@@ -543,6 +570,11 @@ export default function InterviewApp() {
                     <div className="absolute bottom-3 left-3 bg-black bg-opacity-70 text-white px-3 py-1 rounded-full text-sm">
                       {remoteParticipant.name}
                     </div>
+                    {remoteAudioTrack && isTranscriptionEnabled && (
+                      <div className="absolute top-3 right-3 bg-purple-600 text-white px-2 py-1 rounded-full text-xs">
+                        🎤 Transcription active
+                      </div>
+                    )}
                   </>
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
@@ -561,7 +593,6 @@ export default function InterviewApp() {
               </div>
             </div>
 
-            {/* Contrôles */}
             <div className="bg-white rounded-xl shadow-lg p-6">
               <div className="flex items-center justify-center gap-4">
                 <button
@@ -585,70 +616,46 @@ export default function InterviewApp() {
                       : "bg-red-600 hover:bg-red-700 text-white")
                   }
                 >
-                  {isVideoEnabled ? (
-                    <Video size={24} />
-                  ) : (
-                    <VideoOff size={24} />
-                  )}
+                  {isVideoEnabled ? <Video size={24} /> : <VideoOff size={24} />}
                 </button>
               </div>
 
               <div className="mt-4 text-center text-sm text-gray-600">
                 {isAudioEnabled ? "🎤 Micro activé" : "🔇 Micro coupé"} •
-                {isVideoEnabled
-                  ? " 📹 Caméra activée"
-                  : " 📷 Caméra désactivée"}
+                {isVideoEnabled ? " 📹 Caméra activée" : " 📷 Caméra désactivée"}
               </div>
             </div>
           </div>
 
-          {/* Transcription */}
-          <div className="bg-white rounded-xl shadow-lg p-6 flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">
-                📝 Transcription
-              </h3>
-              <span className="text-xs text-gray-500">
-                {transcripts.filter((t) => t.isFinal).length} phrases
-              </span>
-            </div>
-
-            <div className="flex-1 overflow-y-auto max-h-96 space-y-3">
-              {transcripts.length === 0 ? (
-                <div className="text-center text-gray-400 py-8">
-                  {isTranscriptionEnabled
-                    ? "En attente de parole..."
-                    : "Démarrez la transcription"}
-                </div>
-              ) : (
-                transcripts.map((entry, index) => {
-                  const colors = getSpeakerColor(entry.speaker);
-                  return (
-                    <div
-                      key={index}
-                      className={`${colors.bg} ${colors.border} border rounded-lg p-3 ${
-                        !entry.isFinal ? "opacity-60 italic" : ""
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span
-                          className={`text-sm font-semibold ${colors.text}`}
-                        >
-                          {entry.speaker}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {entry.timestamp}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-700">{entry.text}</p>
-                    </div>
-                  );
-                })
-              )}
-              <div ref={transcriptEndRef} />
-            </div>
-          </div>
+          <TranscriptionPanel
+            transcripts={transcripts}
+            currentUserName={userName}
+            onExport={exportTranscript}
+            isTranscribing={isTranscriptionEnabled}
+          />
         </div>
+
+        {isTranscriptionEnabled && !remoteAudioTrack && remoteParticipant && (
+          <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-sm text-yellow-800 font-medium">
+              ⚠️ En attente de l'audio du participant distant...
+            </p>
+            <p className="text-xs text-yellow-700 mt-1">
+              Le participant distant doit activer son microphone pour que sa transcription fonctionne.
+            </p>
+          </div>
+        )}
+
+        {isTranscriptionEnabled && remoteAudioTrack && (
+          <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <p className="text-sm text-green-800 font-medium">
+              ✅ Transcription des 2 participants active !
+            </p>
+            <p className="text-xs text-green-700 mt-1">
+              Votre audio (bleu) + Audio distant (vert) sont transcrits en temps réel.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
