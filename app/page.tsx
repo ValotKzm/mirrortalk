@@ -367,7 +367,7 @@ export default function InterviewApp() {
 
   if (!isConnected) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-6">
+      <div className="min-h-screen bg-blue-50 flex items-center justify-center p-6">
         <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full">
           <div className="text-center mb-6">
             <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">

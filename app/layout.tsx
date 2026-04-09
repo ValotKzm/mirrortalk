@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { Connection } from "./components/connectionForms/Connection";
 
 
 
@@ -18,6 +19,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
+        <Connection />
         {children}
       </body>
     </html>
