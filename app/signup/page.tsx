@@ -2,7 +2,13 @@ import Link from "next/link";
 import { ArrowLeft, Video } from "lucide-react";
 import { SignUpForm } from "@/app/components/connectionForms/SignUpForm";
 
-export default async function Inscription() {
+export default async function Inscription({
+    searchParams,
+}: {
+    searchParams: Promise<{ error?: string }>;
+}) {
+    const { error } = await searchParams;
+
     return (
         <main className="studio-page signup-page">
             <div className="page-frame">
@@ -27,9 +33,20 @@ export default async function Inscription() {
                             <h2>Créer un compte</h2>
                             <p>Quelques informations et vous pourrez commencer.</p>
                         </div>
+                        {error === "password-too-short" ? (
+                            <div className="notice notice-error" role="alert">
+                                <strong>Mot de passe trop court</strong>
+                                <p>Choisissez un mot de passe d&apos;au moins 8 caractères.</p>
+                            </div>
+                        ) : error === "true" ? (
+                            <div className="notice notice-error" role="alert">
+                                <strong>Création du compte impossible</strong>
+                                <p>Vérifiez les informations saisies ou essayez une autre adresse e-mail.</p>
+                            </div>
+                        ) : null}
                         <SignUpForm />
                         <p className="signup-existing">
-                            Vous avez déjà un compte ? <span>Connectez-vous depuis le bouton en haut de page.</span>
+                            Vous avez déjà un compte ? <Link href="/login">Connectez-vous.</Link>
                         </p>
                     </div>
                 </section>

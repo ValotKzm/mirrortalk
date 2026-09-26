@@ -3,21 +3,20 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 
 export const logInAction = async (formData: FormData) => {
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
-    if (!email && !password) {
-        throw Error("email and password are required");
+    const email = formData.get("email");
+    const password = formData.get("password");
+    if (typeof email !== "string" || !email.trim() || typeof password !== "string" || !password) {
+        redirect("/login?error=true");
     }
     const response = await auth.api.signInEmail({
         body: {
-            email,
+            email: email.trim(),
             password,
         },
         asResponse: true,
     });
     if (!response.ok) {
-        console.error("Sign in failed:", await response.json());
-        redirect("/auth/signin?error=true");
+        redirect("/login?error=true");
     }
-    redirect("./");
+    redirect("/");
 };

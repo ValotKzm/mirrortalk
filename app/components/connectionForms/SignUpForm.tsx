@@ -47,9 +47,11 @@ export const SignUpForm = () => {
                         type="password"
                         placeholder="Choisissez un mot de passe"
                         autoComplete="new-password"
+                        minLength={8}
                         required
                     />
                 </div>
+                <span className="signup-field-hint">8 caractères minimum.</span>
             </div>
 
             <button type="submit" className="signup-submit">

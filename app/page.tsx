@@ -17,6 +17,7 @@ import { Room, RoomEvent, Track } from "livekit-client";
 import DeepgramTranscription from "./components/DeepgramTranscription";
 import DeepgramRemoteTranscription from "./components/DeepgramRemoteTranscription";
 import TranscriptionPanel from "./components/TranscriptionPanel";
+import { useSessionUserName } from "./components/AuthSessionProvider";
 
 // Types
 interface Participant {
@@ -32,8 +33,10 @@ interface TranscriptEntry {
 }
 
 export default function InterviewApp() {
+  const accountName = useSessionUserName();
   const [roomName, setRoomName] = useState<string>("");
-  const [userName, setUserName] = useState<string>("");
+  const [guestName, setGuestName] = useState<string>("");
+  const userName = accountName ?? guestName;
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [isAudioEnabled, setIsAudioEnabled] = useState<boolean>(true);
   const [isVideoEnabled, setIsVideoEnabled] = useState<boolean>(true);
@@ -413,7 +416,11 @@ export default function InterviewApp() {
               <div className="join-panel-heading">
                 <div>
                   <h2>Rejoindre une session</h2>
-                  <p>Choisissez un nom de salle et indiquez comment vous appeler.</p>
+                  <p>
+                    {accountName
+                      ? "Votre nom de compte sera affiché dans la salle."
+                      : "Choisissez un nom temporaire pour rejoindre sans compte."}
+                  </p>
                 </div>
               </div>
 
@@ -437,16 +444,19 @@ export default function InterviewApp() {
                 </div>
 
                 <div className="field-group">
-                  <label htmlFor="participant-name">Votre nom</label>
+                  <label htmlFor="participant-name">
+                    {accountName ? "Nom de votre compte" : "Nom temporaire"}
+                  </label>
                   <div className="input-wrap">
                     <Users size={18} aria-hidden="true" />
                     <input
                       id="participant-name"
                       type="text"
                       value={userName}
-                      onChange={(event) => setUserName(event.target.value)}
-                      placeholder="ex. Marie Dupont"
-                      autoComplete="name"
+                      onChange={(event) => setGuestName(event.target.value)}
+                      placeholder={accountName ? undefined : "ex. Marie Dupont"}
+                      autoComplete={accountName ? "name" : "nickname"}
+                      readOnly={Boolean(accountName)}
                       required
                     />
                   </div>
@@ -464,7 +474,11 @@ export default function InterviewApp() {
 
               <div className="join-note">
                 <Users size={17} aria-hidden="true" />
-                <p>Partagez le nom de la salle avec la personne qui vous accompagne.</p>
+                <p>
+                  {accountName
+                    ? "Votre nom de compte apparaîtra dans la salle. Partagez le nom de la salle avec votre accompagnant."
+                    : "Ce nom temporaire ne crée pas de compte. Partagez le nom de la salle avec votre accompagnant."}
+                </p>
               </div>
             </form>
           </section>
