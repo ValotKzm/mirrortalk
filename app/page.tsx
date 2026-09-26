@@ -1,6 +1,18 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
-import { Video, Mic, MicOff, VideoOff, Wifi } from "lucide-react";
+import {
+  ArrowRight,
+  AudioLines,
+  Captions,
+  DoorOpen,
+  Mic,
+  MicOff,
+  Users,
+  Video,
+  VideoOff,
+  Wifi,
+} from "lucide-react";
+import Link from "next/link";
 import { Room, RoomEvent, Track } from "livekit-client";
 import DeepgramTranscription from "./components/DeepgramTranscription";
 import DeepgramRemoteTranscription from "./components/DeepgramRemoteTranscription";
@@ -327,6 +339,7 @@ export default function InterviewApp() {
 
   useEffect(() => {
     if (isConnected) {
+      window.scrollTo(0, 0);
       startLocalMedia();
     }
     return () => {
@@ -367,80 +380,106 @@ export default function InterviewApp() {
 
   if (!isConnected) {
     return (
-      <div className="min-h-screen bg-blue-50 flex items-center justify-center p-6">
-        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full">
-          <div className="text-center mb-6">
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Video size={32} className="text-blue-600" />
-            </div>
-            <h1 className="text-2xl font-bold text-gray-800">
-              Simulateur d'Entretien
-            </h1>
-            <p className="text-gray-600 mt-2">Transcription 2 participants</p>
-          </div>
+      <main className="studio-page entry-page">
+        <div className="page-frame">
+          <header className="brand-header">
+            <Link className="brand-lockup" href="/" aria-label="MirrorTalk, accueil">
+              <span className="brand-symbol"><Video size={20} strokeWidth={2.2} /></span>
+              <span className="brand-name">MirrorTalk</span>
+            </Link>
+          </header>
 
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-              {error}
-            </div>
-          )}
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nom de la salle
-              </label>
-              <input
-                type="text"
-                value={roomName}
-                onChange={(e) => setRoomName(e.target.value)}
-                placeholder="ex: entretien-dev"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+          <section className="entry-layout" aria-labelledby="entry-title">
+            <div className="entry-copy">
+              <h1 id="entry-title">Préparez votre prochain entretien.</h1>
+              <p>
+                Entraînez-vous à deux en direct, puis retrouvez votre échange dans une
+                transcription.
+              </p>
+              <div className="entry-features" aria-label="Fonctionnalités de la session">
+                <span><Video size={17} /> Vidéo en direct</span>
+                <span><Users size={17} /> Jusqu&apos;à deux participants</span>
+                <span><Captions size={17} /> Transcription</span>
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Votre nom
-              </label>
-              <input
-                type="text"
-                value={userName}
-                onChange={(e) => setUserName(e.target.value)}
-                placeholder="ex: Marie Dupont"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <button
-              onClick={handleJoin}
-              disabled={!roomName.trim() || !userName.trim()}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition"
+            <form
+              className="join-panel"
+              onSubmit={(event) => {
+                event.preventDefault();
+                handleJoin();
+              }}
             >
-              Rejoindre l'entretien
-            </button>
-          </div>
+              <div className="join-panel-heading">
+                <div>
+                  <h2>Rejoindre une session</h2>
+                  <p>Choisissez un nom de salle et indiquez comment vous appeler.</p>
+                </div>
+              </div>
 
-          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800 font-medium mb-2">
-              📋 Connectez vous et échangez.
-            </p>
-            <ol className="text-xs text-blue-700 space-y-1">
-              <li>1. Partager le nom de room avec votre binôme</li>
-              <li>2. Rejoignez la room</li>
-              <li>
-                3. Connectez vous à grâce au bouton "se connecter à Livekit"
-              </li>
-              <li>4. Bon entrainement !</li>
-            </ol>
-          </div>
+              {error && <div className="notice notice-error" role="alert">{error}</div>}
+
+              <div className="join-fields">
+                <div className="field-group">
+                  <label htmlFor="room-name">Nom de la salle</label>
+                  <div className="input-wrap">
+                    <DoorOpen size={18} aria-hidden="true" />
+                    <input
+                      id="room-name"
+                      type="text"
+                      value={roomName}
+                      onChange={(event) => setRoomName(event.target.value)}
+                      placeholder="ex. entretien-dev"
+                      autoComplete="off"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="field-group">
+                  <label htmlFor="participant-name">Votre nom</label>
+                  <div className="input-wrap">
+                    <Users size={18} aria-hidden="true" />
+                    <input
+                      id="participant-name"
+                      type="text"
+                      value={userName}
+                      onChange={(event) => setUserName(event.target.value)}
+                      placeholder="ex. Marie Dupont"
+                      autoComplete="name"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={!roomName.trim() || !userName.trim()}
+                className="primary-action"
+              >
+                <span>Entrer dans la salle</span>
+                <ArrowRight size={19} />
+              </button>
+
+              <div className="join-note">
+                <Users size={17} aria-hidden="true" />
+                <p>Partagez le nom de la salle avec la personne qui vous accompagne.</p>
+              </div>
+            </form>
+          </section>
+
+          <footer className="entry-footer">
+            <span>Une salle commune, un échange en direct.</span>
+            <span>MirrorTalk</span>
+          </footer>
         </div>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 p-6">
+    <div className="studio-page session-page">
       {/* Transcription LOCAL */}
       <DeepgramTranscription
         audioStream={localStreamRef.current}
@@ -458,174 +497,163 @@ export default function InterviewApp() {
         onStatusChange={setRemoteDeepgramStatus}
       />
 
-      <div className="max-w-7xl mx-auto">
-        <div className="bg-white rounded-xl shadow-lg p-4 mb-6">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div>
-              <h2 className="text-xl font-semibold text-gray-800">
-                {userName}
-              </h2>
-              <p className="text-sm text-gray-600">
-                Salle : <span className="font-mono text-blue-600">{roomName}</span>
-              </p>
-            </div>
-            <div className="flex items-center gap-3 flex-wrap">
-              {!isLivekitConnected && (
-                <button
-                  onClick={connectToLivekit}
-                  disabled={isConnecting}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg transition text-sm font-medium flex items-center gap-2"
-                >
-                  <Wifi size={16} />
-                  {isConnecting ? "Connexion..." : "Connecter"}
-                </button>
-              )}
-
-              {isLivekitConnected && !isTranscriptionEnabled && (
-                <button
-                  onClick={() => setIsTranscriptionEnabled(true)}
-                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition text-sm font-medium"
-                >
-                  🎤 Démarrer transcription
-                </button>
-              )}
-
-              {isLivekitConnected && isTranscriptionEnabled && (
-                <button
-                  onClick={() => setIsTranscriptionEnabled(false)}
-                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition text-sm font-medium"
-                >
-                  ⏸️ Arrêter
-                </button>
-              )}
-
-              {isLivekitConnected && (
-                <div className="text-green-600 text-sm font-medium flex items-center gap-2">
-                  <Wifi size={16} />
-                  LiveKit ✓
-                </div>
-              )}
-
-              {localDeepgramStatus && (
-                <div className="text-blue-600 text-xs">
-                  Local: {localDeepgramStatus}
-                </div>
-              )}
-
-              {remoteDeepgramStatus && (
-                <div className="text-green-600 text-xs">
-                  Distant: {remoteDeepgramStatus}
-                </div>
-              )}
-
-              <button
-                onClick={handleLeave}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition text-sm font-medium"
-              >
-                Quitter
-              </button>
+      <div className="page-frame">
+        <header className="session-header">
+          <div className="session-identity">
+            <Link className="brand-lockup" href="/" aria-label="MirrorTalk, accueil">
+              <span className="brand-symbol"><Video size={20} strokeWidth={2.2} /></span>
+              <span className="brand-name">MirrorTalk</span>
+            </Link>
+            <div className="session-room">
+              <span>Salle</span>
+              <strong>{roomName}</strong>
+              <span className="room-divider" aria-hidden="true" />
+              <span>{userName}</span>
             </div>
           </div>
+
+          <div className="session-actions">
+            {!isLivekitConnected && (
+              <button
+                onClick={connectToLivekit}
+                disabled={isConnecting}
+                className="session-action session-action-primary"
+              >
+                <Wifi size={17} />
+                {isConnecting ? "Connexion…" : "Démarrer la vidéo"}
+              </button>
+            )}
+
+            {isLivekitConnected && !isTranscriptionEnabled && (
+              <button
+                onClick={() => setIsTranscriptionEnabled(true)}
+                className="session-action session-action-primary"
+              >
+                <AudioLines size={17} />
+                Démarrer la transcription
+              </button>
+            )}
+
+            {isLivekitConnected && isTranscriptionEnabled && (
+              <button
+                onClick={() => setIsTranscriptionEnabled(false)}
+                className="session-action session-action-secondary"
+              >
+                <Captions size={17} />
+                Arrêter la transcription
+              </button>
+            )}
+
+            <button onClick={handleLeave} className="session-action session-action-leave">
+              Quitter la salle
+            </button>
+          </div>
+        </header>
+
+        <div className="session-status" aria-live="polite">
+          <span className={`status-indicator ${isLivekitConnected ? "is-connected" : ""}`}>
+            <span className="status-dot" aria-hidden="true" />
+            {isLivekitConnected ? "Connecté" : "Hors connexion"}
+          </span>
+          {isTranscriptionEnabled && (
+            <span className="status-indicator status-transcribing">
+              <AudioLines size={15} /> Transcription en cours
+            </span>
+          )}
+          {localDeepgramStatus && <span className="service-status">Micro : {localDeepgramStatus}</span>}
+          {remoteDeepgramStatus && <span className="service-status">Binôme : {remoteDeepgramStatus}</span>}
         </div>
 
-        {error && (
-          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
-            {error}
-          </div>
-        )}
+        {error && <div className="notice notice-error session-notice" role="alert">{error}</div>}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-gray-900 rounded-xl overflow-hidden aspect-video relative">
+        <main className="workspace">
+          <section className="video-section" aria-labelledby="session-title">
+            <div className="section-heading">
+              <div>
+                <h1 id="session-title">Session en direct</h1>
+                <p>Votre échange vidéo avec votre binôme.</p>
+              </div>
+              <span className="participant-count"><Users size={16} /> Deux places</span>
+            </div>
+
+            <div className="video-grid">
+              <figure className="participant-tile participant-self">
                 <video
                   ref={localVideoRef}
                   autoPlay
                   muted
                   playsInline
-                  className="w-full h-full object-cover"
+                  aria-label={`Votre vidéo, ${userName}`}
+                  className="participant-video"
                 />
-                <div className="absolute bottom-3 left-3 bg-black bg-opacity-70 text-white px-3 py-1 rounded-full text-sm">
-                  Vous ({userName})
-                </div>
+                <figcaption className="participant-caption">
+                  <span>{userName}</span><span className="participant-role">Vous</span>
+                </figcaption>
                 {!isVideoEnabled && (
-                  <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
-                    <div className="text-center text-gray-400">
-                      <VideoOff size={48} className="mx-auto mb-2" />
-                      <p className="text-sm">Caméra désactivée</p>
-                    </div>
+                  <div className="video-placeholder video-disabled">
+                    <VideoOff size={28} />
+                    <p>Caméra désactivée</p>
                   </div>
                 )}
-              </div>
+                {!localStreamRef.current && isVideoEnabled && (
+                  <div className="video-placeholder video-unavailable">
+                    <span className="placeholder-icon"><Video size={22} /></span>
+                    <p>Votre image apparaîtra ici</p>
+                    <span>Autorisez la caméra dans le navigateur pour démarrer la vidéo.</span>
+                  </div>
+                )}
+              </figure>
 
-              <div className="bg-gray-900 rounded-xl overflow-hidden aspect-video relative">
+              <figure className="participant-tile participant-remote">
                 {remoteParticipant ? (
                   <>
                     <video
                       ref={remoteVideoRef}
                       autoPlay
                       playsInline
-                      className="w-full h-full object-cover"
+                      aria-label={`Vidéo de ${remoteParticipant.name}`}
+                      className="participant-video"
                     />
-                    <div className="absolute bottom-3 left-3 bg-black bg-opacity-70 text-white px-3 py-1 rounded-full text-sm">
-                      {remoteParticipant.name}
-                    </div>
+                    <figcaption className="participant-caption">
+                      <span>{remoteParticipant.name}</span><span className="participant-role">Binôme</span>
+                    </figcaption>
                     {remoteAudioTrack && isTranscriptionEnabled && (
-                      <div className="absolute top-3 right-3 bg-purple-600 text-white px-2 py-1 rounded-full text-xs">
-                        🎤 Transcription active
-                      </div>
+                      <span className="participant-live"><AudioLines size={14} /> Audio reçu</span>
                     )}
                   </>
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <div className="text-center text-gray-400">
-                      <div className="animate-pulse">
-                        <Video size={48} className="mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">
-                          {isLivekitConnected
-                            ? "En attente..."
-                            : "Connectez LiveKit"}
-                        </p>
-                      </div>
-                    </div>
+                  <div className="video-placeholder" aria-live="polite">
+                    <span className="placeholder-icon"><Users size={24} /></span>
+                    <p>{isLivekitConnected ? "En attente de votre binôme" : "Connectez-vous pour lancer la session"}</p>
+                    <span>Le flux vidéo apparaîtra ici</span>
                   </div>
                 )}
-              </div>
+              </figure>
             </div>
 
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <div className="flex items-center justify-center gap-4">
-                <button
-                  onClick={toggleAudio}
-                  className={
-                    "p-4 rounded-full transition " +
-                    (isAudioEnabled
-                      ? "bg-gray-700 hover:bg-gray-600 text-white"
-                      : "bg-red-600 hover:bg-red-700 text-white")
-                  }
-                >
-                  {isAudioEnabled ? <Mic size={24} /> : <MicOff size={24} />}
-                </button>
-
-                <button
-                  onClick={toggleVideo}
-                  className={
-                    "p-4 rounded-full transition " +
-                    (isVideoEnabled
-                      ? "bg-gray-700 hover:bg-gray-600 text-white"
-                      : "bg-red-600 hover:bg-red-700 text-white")
-                  }
-                >
-                  {isVideoEnabled ? <Video size={24} /> : <VideoOff size={24} />}
-                </button>
-              </div>
-
-              <div className="mt-4 text-center text-sm text-gray-600">
-                {isAudioEnabled ? "🎤 Micro activé" : "🔇 Micro coupé"} •
-                {isVideoEnabled ? " 📹 Caméra activée" : " 📷 Caméra désactivée"}
-              </div>
+            <div className="media-controls" role="group" aria-label="Contrôles audio et vidéo">
+              <button
+                onClick={toggleAudio}
+                disabled={!isLivekitConnected}
+                aria-label={isAudioEnabled ? "Couper le microphone" : "Activer le microphone"}
+                title={isLivekitConnected ? (isAudioEnabled ? "Couper le microphone" : "Activer le microphone") : "Connectez-vous pour contrôler le microphone"}
+                className={`media-control ${isAudioEnabled ? "" : "is-disabled"}`}
+              >
+                <span className="control-icon">{isAudioEnabled ? <Mic size={20} /> : <MicOff size={20} />}</span>
+                <span className="control-copy"><span>Microphone</span><strong>{isLivekitConnected ? (isAudioEnabled ? "Activé" : "Coupé") : "En attente"}</strong></span>
+              </button>
+              <button
+                onClick={toggleVideo}
+                disabled={!isLivekitConnected}
+                aria-label={isVideoEnabled ? "Désactiver la caméra" : "Activer la caméra"}
+                title={isLivekitConnected ? (isVideoEnabled ? "Désactiver la caméra" : "Activer la caméra") : "Connectez-vous pour contrôler la caméra"}
+                className={`media-control ${isVideoEnabled ? "" : "is-disabled"}`}
+              >
+                <span className="control-icon">{isVideoEnabled ? <Video size={20} /> : <VideoOff size={20} />}</span>
+                <span className="control-copy"><span>Caméra</span><strong>{isLivekitConnected ? (isVideoEnabled ? "Activée" : "Coupée") : "En attente"}</strong></span>
+              </button>
             </div>
-          </div>
+          </section>
 
           <TranscriptionPanel
             transcripts={transcripts}
@@ -633,27 +661,25 @@ export default function InterviewApp() {
             onExport={exportTranscript}
             isTranscribing={isTranscriptionEnabled}
           />
-        </div>
+        </main>
 
         {isTranscriptionEnabled && !remoteAudioTrack && remoteParticipant && (
-          <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-sm text-yellow-800 font-medium">
-              ⚠️ En attente de l'audio du participant distant...
-            </p>
-            <p className="text-xs text-yellow-700 mt-1">
-              Le participant distant doit activer son microphone pour que sa transcription fonctionne.
-            </p>
+          <div className="notice notice-pending" role="status">
+            <AudioLines size={18} />
+            <div>
+              <strong>En attente de l&apos;audio du participant distant</strong>
+              <p>Son microphone doit être activé pour transcrire sa voix.</p>
+            </div>
           </div>
         )}
 
         {isTranscriptionEnabled && remoteAudioTrack && (
-          <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <p className="text-sm text-green-800 font-medium">
-              ✅ Transcription des 2 participants active !
-            </p>
-            <p className="text-xs text-green-700 mt-1">
-              Votre audio (bleu) + Audio distant (vert) sont transcrits en temps réel.
-            </p>
+          <div className="notice notice-success" role="status">
+            <AudioLines size={18} />
+            <div>
+              <strong>Transcription des deux participants active</strong>
+              <p>Votre voix et celle de votre binôme sont transcrites en direct.</p>
+            </div>
           </div>
         )}
       </div>

@@ -1,6 +1,6 @@
 "use client";
 import { useRef, useEffect } from 'react';
-import { Download } from 'lucide-react';
+import { AudioLines, Download } from 'lucide-react';
 
 interface TranscriptEntry {
   timestamp: string;
@@ -28,27 +28,25 @@ export default function TranscriptionPanel({
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [transcripts]);
 
-  const getSpeakerColor = (speaker: string) => {
-    return speaker === currentUserName
-      ? { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700" }
-      : { bg: "bg-green-50", border: "border-green-200", text: "text-green-700" };
-  };
+  const finalTranscriptCount = transcripts.filter((entry) => entry.isFinal).length;
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6 flex flex-col">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-800">
-          📝 Transcription
-        </h3>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500">
-            {transcripts.filter((t) => t.isFinal).length} phrases
+    <section className="transcription-panel" aria-labelledby="transcription-title">
+      <div className="transcription-heading">
+        <div className="transcription-title-group">
+          <h2 id="transcription-title">Transcription</h2>
+          <p>Les échanges apparaissent en direct.</p>
+        </div>
+        <div className="transcription-tools">
+          <span className="phrase-count" aria-live="polite">
+            {finalTranscriptCount} {finalTranscriptCount > 1 ? "phrases" : "phrase"}
           </span>
-          {transcripts.filter((t) => t.isFinal).length > 0 && (
+          {finalTranscriptCount > 0 && (
             <button
               onClick={onExport}
-              className="text-indigo-600 hover:text-indigo-700 transition"
-              title="Exporter"
+              className="icon-action"
+              title="Télécharger la transcription"
+              aria-label="Télécharger la transcription"
             >
               <Download size={18} />
             </button>
@@ -56,38 +54,31 @@ export default function TranscriptionPanel({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto max-h-96 space-y-3">
+      <div className="transcription-scroll">
         {transcripts.length === 0 ? (
-          <div className="text-center text-gray-400 py-8">
-            {isTranscribing
-              ? "En attente de parole..."
-              : "Démarrez la transcription"}
+          <div className="empty-transcript" role="status">
+            <AudioLines size={25} />
+            <p>{isTranscribing ? "En attente de parole" : "La transcription s'affichera ici"}</p>
+            <span>{isTranscribing ? "Parlez naturellement pour commencer." : "Lancez la transcription quand la session est prête."}</span>
           </div>
         ) : (
-          transcripts.map((entry, index) => {
-            const colors = getSpeakerColor(entry.speaker);
-            return (
+          <div className="transcript-list">
+            {transcripts.map((entry, index) => (
               <div
                 key={index}
-                className={`${colors.bg} ${colors.border} border rounded-lg p-3 ${
-                  !entry.isFinal ? "opacity-60 italic" : ""
-                }`}
+                className={`transcript-line ${entry.speaker === currentUserName ? "is-local" : "is-remote"} ${!entry.isFinal ? "is-interim" : ""}`}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className={`text-sm font-semibold ${colors.text}`}>
-                    {entry.speaker}
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    {entry.timestamp}
-                  </span>
+                <div className="transcript-meta">
+                  <span className="transcript-speaker">{entry.speaker}</span>
+                  <time className="transcript-time">{entry.timestamp}</time>
                 </div>
-                <p className="text-sm text-gray-700">{entry.text}</p>
+                <p className="transcript-text">{entry.text}</p>
               </div>
-            );
-          })
+            ))}
+          </div>
         )}
         <div ref={transcriptEndRef} />
       </div>
-    </div>
+    </section>
   );
 }

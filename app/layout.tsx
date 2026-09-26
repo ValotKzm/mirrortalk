@@ -8,7 +8,7 @@ import { Connection } from "./components/connectionForms/Connection";
 
 export const metadata: Metadata = {
   title: "MirrorTalk",
-  description: "Contruct your future",
+  description: "Entraînez-vous aux entretiens en direct et gardez une transcription de votre échange.",
 };
 
 export default function RootLayout({
@@ -17,7 +17,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="fr">
       <body>
         <Connection />
         {children}
