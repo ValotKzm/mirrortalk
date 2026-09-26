@@ -497,7 +497,7 @@ export default function InterviewApp() {
       {/* Transcription LOCAL */}
       <DeepgramTranscription
         audioStream={localStreamRef.current}
-        isEnabled={isTranscriptionEnabled}
+        isEnabled={isTranscriptionEnabled && isAudioEnabled}
         onTranscript={handleLocalTranscript}
         onStatusChange={setLocalDeepgramStatus}
       />
