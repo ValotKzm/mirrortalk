@@ -1,20 +1,10 @@
-"use server";
-
-import { auth } from "@/auth";
-import { headers } from "next/headers";
 import { LogInForm } from "./LogInForm";
 import { LogOutButton } from "./LogOutForm";
 
-export const Connection = async () => {
-
-  const session = await auth.api.getSession({ headers: await headers() });
-
+export const Connection = ({ isAuthenticated }: { isAuthenticated: boolean }) => {
   return (
     <>
-      {session ?
-        <LogOutButton /> : (
-            <LogInForm />
-        )}
+      {isAuthenticated ? <LogOutButton /> : <LogInForm />}
     </>
   );
 };

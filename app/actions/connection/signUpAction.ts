@@ -3,23 +3,29 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 
 export const signUpAction = async (formData: FormData) => {
-    const name = formData.get("name") as string;
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
-    if (!name && !email && !password) {
-        throw Error("Name, email and password are required");
+    const name = formData.get("name");
+    const email = formData.get("email");
+    const password = formData.get("password");
+    if (
+        typeof name !== "string" || !name.trim() ||
+        typeof email !== "string" || !email.trim() ||
+        typeof password !== "string" || !password
+    ) {
+        redirect("/signup?error=true");
+    }
+    if (password.length < 8) {
+        redirect("/signup?error=password-too-short");
     }
     const response = await auth.api.signUpEmail({
         body: {
-            name,
-            email,
+            name: name.trim(),
+            email: email.trim(),
             password,
         },
         asResponse: true,
     });
     if (!response.ok) {
-        console.error("Sign in failed:", await response.json());
-        redirect("/auth/signup?error=true");
+        redirect("/signup?error=true");
     }
     redirect("/");
 };

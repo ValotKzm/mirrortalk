@@ -1137,6 +1137,11 @@ input {
   color: var(--text-muted);
 }
 
+.signup-existing a {
+  color: var(--accent);
+  text-underline-offset: 3px;
+}
+
 .signup-footer {
   width: min(100%, 1280px);
   margin: 0 auto;
