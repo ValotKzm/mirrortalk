@@ -22,25 +22,28 @@ export const LogInForm = () => {
     }, [isOpen]);
 
     return (
-        <div ref={containerRef} className="relative pt-1 pl-1 bg-blue-50">
+        <div ref={containerRef} className="auth-control">
             <button 
                 onClick={() => setIsOpen(!isOpen)} 
-                className="bg-blue-200"
+                className="auth-trigger"
+                type="button"
+                aria-expanded={isOpen}
+                aria-controls="login-panel"
             >
                 Se connecter
             </button>
             <form 
+                id="login-panel"
                 action={logInAction} 
-                className={`absolute top-0.5 left-0.5 flex gap-2 p-0 bg-white transition-transform duration-300 ease-in-out ${
-                    isOpen ? 'translate-x-0' : '-translate-x-full'
-                }`}
+                className="auth-panel"
+                hidden={!isOpen}
             >
-                <label htmlFor="email" className="sr-only">E-mail</label>
-                <input name="email" type="email" placeholder="E-mail" required />
-                <label htmlFor="password" className="sr-only">Mot de passe</label>
-                <input name="password" type="password" placeholder="Mot de passe" required />
-                <button type="submit" className="bg-blue-200">Connexion</button>
-                <Link href="/signup"><button onClick={() => setIsOpen(!isOpen)} className="bg-green-200">Inscription</button></Link>
+                <label htmlFor="login-email">E-mail</label>
+                <input id="login-email" name="email" type="email" autoComplete="email" required />
+                <label htmlFor="login-password">Mot de passe</label>
+                <input id="login-password" name="password" type="password" autoComplete="current-password" required />
+                <button type="submit" className="auth-submit">Connexion</button>
+                <Link href="/signup" onClick={() => setIsOpen(false)} className="auth-link">Créer un compte</Link>
             </form>
         </div>
     );
